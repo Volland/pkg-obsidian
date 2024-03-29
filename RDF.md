@@ -21,13 +21,18 @@ let tripples = []
 for (let p = 0 ; p < pages.length ; p++) {
 	const page = pages[p]
 	const path = page.file.path
+	const outgoingLinks =[... new Set(page.file.outlinks.values.map(l => l.path))]
+	const processedLinks = {}
 	fileMap[page.file.path] = {name: page.file.name, uuid: generateUUID()}
 	delete page.file
     const links = Object.entries(page).filter(([key , val]) => val.path != null).map(([key, val]) => {
     const item = {from: path, to: val.path, rel: key}
+    processedLinks[val.path] = 1
     return item
     })
     tripples = tripples.concat(links)
+    const unnamedLinks = outgoingLinks.filter(l => !processedLinks[l] ).map(l => ({from: path , to: l , rel: 'linked'}))
+    tripples = tripples.concat(unnamedLinks)
     
 }
 let rdf = '@prefix pkg: <https://pkg.io/>.\n@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.\npkg:Node a rdfs:Class .\npkg:Edge a rdfs:Class .\n'
@@ -35,23 +40,35 @@ let rdf = '@prefix pkg: <https://pkg.io/>.\n@prefix rdf: <http://www.w3.org/1999
 const nodes = Object.values(fileMap).map(v => `<urn:uuid:${v.uuid}> rdfs:label "${v.name}".\n<urn:uuid:${v.uuid}> rdf:type pkg:Node.\n`).join('')
 rdf += nodes
 
+const missedPages = {}
+
 const edges = tripples.map((t) => {
 const edgeId = generateUUID()
 let r = `<urn:uuid:${edgeId}> rdfs:label "${t.rel}".\n<urn:uuid:${edgeId}> rdf:type pkg:Edge.\n`
 
 const from = fileMap[t.from]
 if(!from) {
-dv.span('No from ' + t.from + '\n')
+  if (!missedPages[t.from]) {
+	  missedPages[t.from] = generateUUID()
+  }
 }
 
 const to = fileMap[t.to]
 if(!to) {
-dv.span('No from ' + t.to + '\n')
+     if (!missedPages[t.to]) {
+	  missedPages[t.to] = generateUUID()
+  }
 }
-r += `<urn:uuid:${from ? from.uuid : ''}> <urn:uuid:${edgeId}> <urn:uuid:${to ? to.uuid : ''}>.\n`
+r += `<urn:uuid:${from ? from.uuid : missedPages[t.from]}> <urn:uuid:${edgeId}> <urn:uuid:${to ? to.uuid :   missedPages[t.to]}>.\n`
 return r
 }).join('')
-rdf += edges
 
+const missedNodes = Object.entries(missedPages).map(([key, val]) => `<urn:uuid:${val}> rdfs:label "${key}".\n<urn:uuid:${val}> rdf:type pkg:Node.\n`).join('')
+rdf += missedNodes
+
+rdf += edges
+dv.header(2, 'Missed Pages')
+dv.list(Object.keys(missedPages).map(p => `[[${p}]]`))
+dv.header(2,'Rdf file')
 dv.span(rdf)
 
