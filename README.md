@@ -30,7 +30,11 @@ So, we need to generate unique uuid identifiers for every object. In RDF, there 
 Let's create a simple ontology.
 
 ```
-<span id="00d7" data-selectable-paragraph="">@prefix pkg: https://pkg.io/.<br>@prefix rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#.<br>@prefix rdfs: http://www.w3.org/2000/01/rdf-schema#.<br>pkg:Node a rdfs:Class .<br>pkg:Edge a rdfs:Class .</span>
+@prefix pkg: https://pkg.io/.
+@prefix rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#.
+@prefix rdfs: http://www.w3.org/2000/01/rdf-schema#.
+pkg:Node a rdfs:Class .
+pkg:Edge a rdfs:Class .
 ```
 
 We have types of Node and Edge.
@@ -38,7 +42,8 @@ We have types of Node and Edge.
 Node representation is a pair of triples that include a type and label. We will use page names as node labels
 
 ```
-<span id="633d" data-selectable-paragraph="">&lt;urn:uuid:6549cc7e-e605-4b93-9039-c09be6bf004f&gt; rdfs:label <span>"Personal Knowledge Graph"</span>.<br>&lt;urn:uuid:6549cc7e-e605-4b93-9039-c09be6bf004f&gt; rdf:<span>type</span> pkg:Node.</span>
+<urn:uuid:6549cc7e-e605-4b93-9039-c09be6bf004f> rdfs:label "Personal Knowledge Graph".
+<urn:uuid:6549cc7e-e605-4b93-9039-c09be6bf004f> rdf:type pkg:Node.
 ```
 
 Edges are the same we have a thee of triples:
@@ -48,7 +53,10 @@ Edges are the same we have a thee of triples:
 -   triple relation
 
 ```
-<span id="1e57" data-selectable-paragraph=""><span>&lt;urn:uuid:792e475b-d503-4e3d-a785-2f71f4f510f8&gt; rdfs:label "linked".</span><br><span>&lt;urn:uuid:792e475b-d503-4e3d-a785-2f71f4f510f8&gt; rdf:type pkg:Edge.</span><br><span>&lt;urn:uuid:c003d751-9604-4a1c-b893-0cd38d75fa67&gt; &lt;urn:uuid:792e475b-d503-4e3d-a785-2f71f4f510f8&gt; &lt;urn:uuid:55b2f738-087a-46a2-bf34-338ce07b44df&gt;.</span></span>
+<urn:uuid:792e475b-d503-4e3d-a785-2f71f4f510f8> rdfs:label "linked".
+<urn:uuid:792e475b-d503-4e3d-a785-2f71f4f510f8> rdf:type pkg:Edge.
+<urn:uuid:c003d751-9604-4a1c-b893-0cd38d75fa67> <urn:uuid:792e475b-d503-4e3d-a785-2f71f4f510f8> <urn:uuid:55b2f738-087a-46a2-bf34-338ce07b44df>.
+
 ```
 
 We create a new Link every time. Another possible implementation is to create a dictionary of link labels and represent them as one resource.
@@ -65,32 +73,46 @@ Lets enable it
 
 As I mention we need to use UUID as identifier so lets make naive implementation of it
 
-```
-<span id="6dbf" data-selectable-paragraph=""><span>function</span> <span>generateUUID</span>() { <br>    <span>var</span> d = <span>new</span> <span>Date</span>().<span>getTime</span>();<br>    <span>var</span> d2 = ((<span>typeof</span> performance !== <span>'undefined'</span>) &amp;&amp; performance.<span>now</span> &amp;&amp; (performance.<span>now</span>()*<span>1000</span>)) || <span>0</span>;<br>    <span>return</span> <span>'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'</span>.<span>replace</span>(<span>/[xy]/g</span>, <span>function</span>(<span>c</span>) {<br>        <span>var</span> r = <span>Math</span>.<span>random</span>() * <span>16</span>;<br>        <span>if</span>(d &gt; <span>0</span>){<br>            r = (d + r)%<span>16</span> | <span>0</span>;<br>            d = <span>Math</span>.<span>floor</span>(d/<span>16</span>);<br>        } <span>else</span> {<br>            r = (d2 + r)%<span>16</span> | <span>0</span>;<br>            d2 = <span>Math</span>.<span>floor</span>(d2/<span>16</span>);<br>        }<br>        <span>return</span> (c === <span>'x'</span> ? r : (r &amp; <span>0x3</span> | <span>0x8</span>)).<span>toString</span>(<span>16</span>);<br>    });<br>}</span>
+```js
+function generateUUID() { // Public Domain/MIT
+    var d = new Date().getTime();//Timestamp
+    var d2 = ((typeof performance !== 'undefined') && performance.now && (performance.now()*1000)) || 0;//Time in microseconds since page-load or 0 if unsupported
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16;//random number between 0 and 16
+        if(d > 0){//Use timestamp until depleted
+            r = (d + r)%16 | 0;
+            d = Math.floor(d/16);
+        } else {//Use microseconds since page-load if supported
+            r = (d2 + r)%16 | 0;
+            d2 = Math.floor(d2/16);
+        }
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
 ```
 
 Now we will scan all pages is your vault
 
-```
-<span id="d18b" data-selectable-paragraph=""><span>const</span> pages = dv.<span>pages</span>()</span>
+```js
+const pages = dv.pages()
 ```
 
 For simple obsidian links that are not typed links, we just need to scan outgoing links and create a map of it
 
-```
-<span id="bb2b" data-selectable-paragraph=""><span>const</span> outgoingLinks =[... <span>new</span> <span>Set</span>(page.<span>file</span>.<span>outlinks</span>.<span>values</span>.<span>map</span>(<span><span>l</span> =&gt;</span> l.<span>path</span>))]</span>
+```js
+
 ```
 
 For named links, we should get attributes and properties of a page that has a value as links
 
-```
-<span id="b01f" data-selectable-paragraph=""><span>Object</span>.<span>entries</span>(page).<span>filter</span>(<span>(<span>[key , val]</span>) =&gt;</span> val.<span>path</span> != <span>null</span>)</span>
+```js
+const outgoingLinks =[... new Set(page.file.outlinks.values.map(l => l.path))]
 ```
 
 Now we need to turn a link to a triples
 
-```
-<span id="e90f" data-selectable-paragraph=""><span>const</span> item = {from: path, to: <span>val</span>.path, rel: key}<br>processedLinks[<span>val</span>.path] = <span>1</span></span>
+```js
+Object.entries(page).filter(([key , val]) => val.path != null)
 ```
 
 we don't want to process links twice so we expect that we filter out named links from ongoing links set
@@ -98,49 +120,222 @@ we don't want to process links twice so we expect that we filter out named links
 Now we ready to create a Nodes entries
 
 ```
-<span id="2538" data-selectable-paragraph="">let rdf = <span>'@prefix pkg: &lt;https://pkg.io/&gt;.\n@prefix rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;.\n@prefix rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;.\npkg:Node a rdfs:Class .\npkg:Edge a rdfs:Class .\n'</span><br><br><span>const</span> <span>nodes</span> = Object.<span>values</span>(fileMap).<span>map</span>(v =&gt; `&lt;<span>urn</span>:<span>uuid</span>:${v.uuid}&gt; <span>rdfs</span>:label <span>"${v.name}"</span>.\n&lt;<span>urn</span>:<span>uuid</span>:${v.uuid}&gt; <span>rdf</span>:type <span>pkg</span>:Node.\n`).<span>join</span>(<span>''</span>)<br>rdf += nodes</span>
+let rdf = '@prefix pkg: <https://pkg.io/>.\n@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.\npkg:Node a rdfs:Class .\npkg:Edge a rdfs:Class .\n'
+
+const nodes = Object.values(fileMap).map(v => `<urn:uuid:${v.uuid}> rdfs:label "${v.name}".\n<urn:uuid:${v.uuid}> rdf:type pkg:Node.\n`).join('')
+rdf += nodes
 ```
 
 Now we will figure out that not all page links has a page in obsidian so we need to takes care and collect such pages
 
-```
-<span id="82d8" data-selectable-paragraph=""><span>const</span> edges = tripples.<span>map</span>(<span>(<span>t</span>) =&gt;</span> {<br><span>const</span> edgeId = <span>generateUUID</span>()<br><span>let</span> r = <span>`&lt;urn:uuid:<span>${edgeId}</span>&gt; rdfs:label "<span>${t.rel}</span>".\n&lt;urn:uuid:<span>${edgeId}</span>&gt; rdf:type pkg:Edge.\n`</span><br><br><span>const</span> <span>from</span> = fileMap[t.<span>from</span>]<br><span>if</span>(!<span>from</span>) {<br>  <span>if</span> (!missedPages[t.<span>from</span>]) {<br>   missedPages[t.<span>from</span>] = <span>generateUUID</span>()<br>  }<br>}<br><br><span>const</span> to = fileMap[t.<span>to</span>]<br><span>if</span>(!to) {<br>     <span>if</span> (!missedPages[t.<span>to</span>]) {<br>   missedPages[t.<span>to</span>] = <span>generateUUID</span>()<br>  }<br>}<br>r += <span>`&lt;urn:uuid:<span>${<span>from</span> ? <span>from</span>.uuid : missedPages[t.<span>from</span>]}</span>&gt; &lt;urn:uuid:<span>${edgeId}</span>&gt; &lt;urn:uuid:<span>${to ? to.uuid :   missedPages[t.to]}</span>&gt;.\n`</span><br><span>return</span> r<br>}).<span>join</span>(<span>''</span>)<br><br></span>
+```js
+const edges = tripples.map((t) => {
+const edgeId = generateUUID()
+let r = `<urn:uuid:${edgeId}> rdfs:label "${t.rel}".\n<urn:uuid:${edgeId}> rdf:type pkg:Edge.\n`
+
+const from = fileMap[t.from]
+if(!from) {
+  if (!missedPages[t.from]) {
+   missedPages[t.from] = generateUUID()
+  }
+}
+
+const to = fileMap[t.to]
+if(!to) {
+     if (!missedPages[t.to]) {
+   missedPages[t.to] = generateUUID()
+  }
+}
+r += `<urn:uuid:${from ? from.uuid : missedPages[t.from]}> <urn:uuid:${edgeId}> <urn:uuid:${to ? to.uuid :   missedPages[t.to]}>.\n`
+return r
+}).join('')
 ```
 
 So now we could create a missed node that has no pages
 
-```
-<span id="6854" data-selectable-paragraph=""><span>const</span> missedNodes = <span>Object</span>.<span>entries</span>(missedPages).<span>map</span>(<span>(<span>[key, val]</span>) =&gt;</span> <span>`&lt;urn:uuid:<span>${val}</span>&gt; rdfs:label "<span>${key}</span>".\n&lt;urn:uuid:<span>${val}</span>&gt; rdf:type pkg:Node.\n`</span>).<span>join</span>(<span>''</span>)<br>rdf += missedNodes</span>
+```js
+const missedNodes = Object.entries(missedPages).map(([key, val]) => `<urn:uuid:${val}> rdfs:label "${key}".\n<urn:uuid:${val}> rdf:type pkg:Node.\n`).join('')
+rdf += missedNodes
 ```
 
 Let's render a result.
 
 Missed page links
 
-```
-<span id="79e6" data-selectable-paragraph="">dv.<span>header</span>(<span>2</span>, <span>'Missed Pages'</span>)<br>dv.<span>list</span>(<span>Object</span>.<span>keys</span>(missedPages).<span>map</span>(<span><span>p</span> =&gt;</span> <span>`[[<span>${p}</span>]]`</span>))</span>
+```js
+dv.header(2, 'Missed Pages')
+dv.list(Object.keys(missedPages).map(p => `[[${p}]]`))
 ```
 
 Now user could do a simple click and create a pages
 
 finally we could generate our RDF
 
-```
-<span id="6e54" data-selectable-paragraph="">dv.<span>header</span>(<span>2</span>,<span>'Rdf file'</span>)<br>dv.<span>span</span>(rdf)</span>
+```js
+dv.header(2,'Rdf file')
+dv.span(rdf)
 ```
 
 ## Final script
 
-```
-<span id="6a43" data-selectable-paragraph=""><br><span>function</span> <span>generateUUID</span>() { <br>    <span>var</span> d = <span>new</span> <span>Date</span>().<span>getTime</span>();<br>    <span>var</span> d2 = ((<span>typeof</span> performance !== <span>'undefined'</span>) &amp;&amp; performance.<span>now</span> &amp;&amp; (performance.<span>now</span>()*<span>1000</span>)) || <span>0</span>;<br>    <span>return</span> <span>'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'</span>.<span>replace</span>(<span>/[xy]/g</span>, <span>function</span>(<span>c</span>) {<br>        <span>var</span> r = <span>Math</span>.<span>random</span>() * <span>16</span>;<br>        <span>if</span>(d &gt; <span>0</span>){<br>            r = (d + r)%<span>16</span> | <span>0</span>;<br>            d = <span>Math</span>.<span>floor</span>(d/<span>16</span>);<br>        } <span>else</span> {<br>            r = (d2 + r)%<span>16</span> | <span>0</span>;<br>            d2 = <span>Math</span>.<span>floor</span>(d2/<span>16</span>);<br>        }<br>        <span>return</span> (c === <span>'x'</span> ? r : (r &amp; <span>0x3</span> | <span>0x8</span>)).<span>toString</span>(<span>16</span>);<br>    });<br>}<br><span>const</span> pages = dv.<span>pages</span>()<br><br><span>const</span> fileMap = {}<br><span>let</span> tripples = []<br><span>for</span> (<span>let</span> p = <span>0</span> ; p &lt; pages.<span>length</span> ; p++) {<br> <span>const</span> page = pages[p]<br> <span>const</span> path = page.<span>file</span>.<span>path</span><br> <span>const</span> outgoingLinks =[... <span>new</span> <span>Set</span>(page.<span>file</span>.<span>outlinks</span>.<span>values</span>.<span>map</span>(<span><span>l</span> =&gt;</span> l.<span>path</span>))]<br> <span>const</span> processedLinks = {}<br> fileMap[page.<span>file</span>.<span>path</span>] = {<span>name</span>: page.<span>file</span>.<span>name</span>, <span>uuid</span>: <span>generateUUID</span>()}<br> <span>delete</span> page.<span>file</span><br>    <span>const</span> links = <span>Object</span>.<span>entries</span>(page).<span>filter</span>(<span>(<span>[key , val]</span>) =&gt;</span> val.<span>path</span> != <span>null</span>).<span>map</span>(<span>(<span>[key, val]</span>) =&gt;</span> {<br>    <span>const</span> item = {<span>from</span>: path, <span>to</span>: val.<span>path</span>, <span>rel</span>: key}<br>    processedLinks[val.<span>path</span>] = <span>1</span><br>    <span>return</span> item<br>    })<br>    tripples = tripples.<span>concat</span>(links)<br>    <span>const</span> unnamedLinks = outgoingLinks.<span>filter</span>(<span><span>l</span> =&gt;</span> !processedLinks[l] ).<span>map</span>(<span><span>l</span> =&gt;</span> ({<span>from</span>: path , <span>to</span>: l , <span>rel</span>: <span>'linked'</span>}))<br>    tripples = tripples.<span>concat</span>(unnamedLinks)<br>    <br>}<br><span>let</span> rdf = <span>'@prefix pkg: &lt;https://pkg.io/&gt;.\n@prefix rdf: &lt;http://www.w3.org/1999/02/22-rdf-syntax-ns#&gt;.\n@prefix rdfs: &lt;http://www.w3.org/2000/01/rdf-schema#&gt;.\npkg:Node a rdfs:Class .\npkg:Edge a rdfs:Class .\n'</span><br><br><span>const</span> nodes = <span>Object</span>.<span>values</span>(fileMap).<span>map</span>(<span><span>v</span> =&gt;</span> <span>`&lt;urn:uuid:<span>${v.uuid}</span>&gt; rdfs:label "<span>${v.name}</span>".\n&lt;urn:uuid:<span>${v.uuid}</span>&gt; rdf:type pkg:Node.\n`</span>).<span>join</span>(<span>''</span>)<br>rdf += nodes<br><br><span>const</span> missedPages = {}<br><br><span>const</span> edges = tripples.<span>map</span>(<span>(<span>t</span>) =&gt;</span> {<br><span>const</span> edgeId = <span>generateUUID</span>()<br><span>let</span> r = <span>`&lt;urn:uuid:<span>${edgeId}</span>&gt; rdfs:label "<span>${t.rel}</span>".\n&lt;urn:uuid:<span>${edgeId}</span>&gt; rdf:type pkg:Edge.\n`</span><br><br><span>const</span> <span>from</span> = fileMap[t.<span>from</span>]<br><span>if</span>(!<span>from</span>) {<br>  <span>if</span> (!missedPages[t.<span>from</span>]) {<br>   missedPages[t.<span>from</span>] = <span>generateUUID</span>()<br>  }<br>}<br><br><span>const</span> to = fileMap[t.<span>to</span>]<br><span>if</span>(!to) {<br>     <span>if</span> (!missedPages[t.<span>to</span>]) {<br>   missedPages[t.<span>to</span>] = <span>generateUUID</span>()<br>  }<br>}<br>r += <span>`&lt;urn:uuid:<span>${<span>from</span> ? <span>from</span>.uuid : missedPages[t.<span>from</span>]}</span>&gt; &lt;urn:uuid:<span>${edgeId}</span>&gt; &lt;urn:uuid:<span>${to ? to.uuid :   missedPages[t.to]}</span>&gt;.\n`</span><br><span>return</span> r<br>}).<span>join</span>(<span>''</span>)<br><br><span>const</span> missedNodes = <span>Object</span>.<span>entries</span>(missedPages).<span>map</span>(<span>(<span>[key, val]</span>) =&gt;</span> <span>`&lt;urn:uuid:<span>${val}</span>&gt; rdfs:label "<span>${key}</span>".\n&lt;urn:uuid:<span>${val}</span>&gt; rdf:type pkg:Node.\n`</span>).<span>join</span>(<span>''</span>)<br>rdf += missedNodes<br><br>rdf += edges<br>dv.<span>header</span>(<span>2</span>, <span>'Missed Pages'</span>)<br>dv.<span>list</span>(<span>Object</span>.<span>keys</span>(missedPages).<span>map</span>(<span><span>p</span> =&gt;</span> <span>`[[<span>${p}</span>]]`</span>))<br>dv.<span>header</span>(<span>2</span>,<span>'Rdf file'</span>)<br>dv.<span>span</span>(rdf)</span>
+```js
+function generateUUID() { // Public Domain/MIT
+    var d = new Date().getTime();//Timestamp
+    var d2 = ((typeof performance !== 'undefined') && performance.now && (performance.now()*1000)) || 0;//Time in microseconds since page-load or 0 if unsupported
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        var r = Math.random() * 16;//random number between 0 and 16
+        if(d > 0){//Use timestamp until depleted
+            r = (d + r)%16 | 0;
+            d = Math.floor(d/16);
+        } else {//Use microseconds since page-load if supported
+            r = (d2 + r)%16 | 0;
+            d2 = Math.floor(d2/16);
+        }
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+const pages = dv.pages()
+
+const fileMap = {}
+let tripples = []
+for (let p = 0 ; p < pages.length ; p++) {
+ const page = pages[p]
+ const path = page.file.path
+ const outgoingLinks =[... new Set(page.file.outlinks.values.map(l => l.path))]
+ const processedLinks = {}
+ fileMap[page.file.path] = {name: page.file.name, uuid: generateUUID()}
+ delete page.file
+    const links = Object.entries(page).filter(([key , val]) => val.path != null).map(([key, val]) => {
+    const item = {from: path, to: val.path, rel: key}
+    processedLinks[val.path] = 1
+    return item
+    })
+    tripples = tripples.concat(links)
+    const unnamedLinks = outgoingLinks.filter(l => !processedLinks[l] ).map(l => ({from: path , to: l , rel: 'linked'}))
+    tripples = tripples.concat(unnamedLinks)
+    
+}
+let rdf = '@prefix pkg: <https://pkg.io/>.\n@prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>.\n@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>.\npkg:Node a rdfs:Class .\npkg:Edge a rdfs:Class .\n'
+
+const nodes = Object.values(fileMap).map(v => `<urn:uuid:${v.uuid}> rdfs:label "${v.name}".\n<urn:uuid:${v.uuid}> rdf:type pkg:Node.\n`).join('')
+rdf += nodes
+
+const missedPages = {}
+
+const edges = tripples.map((t) => {
+const edgeId = generateUUID()
+let r = `<urn:uuid:${edgeId}> rdfs:label "${t.rel}".\n<urn:uuid:${edgeId}> rdf:type pkg:Edge.\n`
+
+const from = fileMap[t.from]
+if(!from) {
+  if (!missedPages[t.from]) {
+   missedPages[t.from] = generateUUID()
+  }
+}
+
+const to = fileMap[t.to]
+if(!to) {
+     if (!missedPages[t.to]) {
+   missedPages[t.to] = generateUUID()
+  }
+}
+r += `<urn:uuid:${from ? from.uuid : missedPages[t.from]}> <urn:uuid:${edgeId}> <urn:uuid:${to ? to.uuid :   missedPages[t.to]}>.\n`
+return r
+}).join('')
+
+const missedNodes = Object.entries(missedPages).map(([key, val]) => `<urn:uuid:${val}> rdfs:label "${key}".\n<urn:uuid:${val}> rdf:type pkg:Node.\n`).join('')
+rdf += missedNodes
+
+rdf += edges
+dv.header(2, 'Missed Pages')
+dv.list(Object.keys(missedPages).map(p => `[[${p}]]`))
+dv.header(2,'Rdf file')
+dv.span(rdf)
 ```
 
 ![](https://miro.medium.com/v2/resize:fit:1400/1*gAFrTklYMEHjzQOCbTRNgQ.png)
 
 RDF sample
 
-```
-<span id="7527" data-selectable-paragraph=""><span>@prefix</span> <span>pkg</span>: <span>https</span>:<br><span>@prefix</span> <span>rdf</span>: <span>http</span>:<br><span>@prefix</span> <span>rdfs</span>: <span>http</span>:<br><span>pkg</span>:Node a <span>rdfs</span>:Class .<br><span>pkg</span>:Edge a <span>rdfs</span>:Class .<br>&lt;<span>urn</span>:<span>uuid</span>:<span>6549</span>cc7e-e605–<span>4</span>b93–<span>9039</span>-c09be6bf004f&gt; <span>rdfs</span>:label <span>"Personal Knowledge Graph"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>6549</span>cc7e-e605–<span>4</span>b93–<span>9039</span>-c09be6bf004f&gt; <span>rdf</span>:type <span>pkg</span>:Node.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>43</span>dad791-b00e-<span>40</span>ec-<span>9</span>ada-<span>2</span>e45a2881d93&gt; <span>rdfs</span>:label <span>"User centric"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>43</span>dad791-b00e-<span>40</span>ec-<span>9</span>ada-<span>2</span>e45a2881d93&gt; <span>rdf</span>:type <span>pkg</span>:Node.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>2964</span>cb00–<span>8</span>fc2–<span>4</span>cd0-acb3–<span>4</span>fc05f9933eb&gt; <span>rdfs</span>:label <span>"Knowledge Graph"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>2964</span>cb00–<span>8</span>fc2–<span>4</span>cd0-acb3–<span>4</span>fc05f9933eb&gt; <span>rdf</span>:type <span>pkg</span>:Node.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>6</span>b4cc8bc-<span>8654</span>–<span>4</span>a5c-<span>8604</span>-a9699fa07241&gt; <span>rdfs</span>:label <span>"Edges"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>6</span>b4cc8bc-<span>8654</span>–<span>4</span>a5c-<span>8604</span>-a9699fa07241&gt; <span>rdf</span>:type <span>pkg</span>:Node.<br>&lt;<span>urn</span>:<span>uuid</span>:c003d751–<span>9604</span>–<span>4</span>a1c-b893–<span>0</span>cd38d75fa67&gt; <span>rdfs</span>:label <span>"me"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:c003d751–<span>9604</span>–<span>4</span>a1c-b893–<span>0</span>cd38d75fa67&gt; <span>rdf</span>:type <span>pkg</span>:Node.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>5</span>ac18eb8–<span>6</span>d66–<span>4794</span>-b93e-<span>2304</span>d24cc908&gt; <span>rdfs</span>:label <span>"User data"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>5</span>ac18eb8–<span>6</span>d66–<span>4794</span>-b93e-<span>2304</span>d24cc908&gt; <span>rdf</span>:type <span>pkg</span>:Node.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>1</span>d28ad39-eebd-<span>4</span>e97–<span>9</span>e71–<span>4</span>f0f9e6fd141&gt; <span>rdfs</span>:label <span>"RDF"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>1</span>d28ad39-eebd-<span>4</span>e97–<span>9</span>e71–<span>4</span>f0f9e6fd141&gt; <span>rdf</span>:type <span>pkg</span>:Node.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>038</span>eaa65–<span>7170</span>–<span>4541</span>–<span>9</span>a10-ff00938bb3ba&gt; <span>rdfs</span>:label <span>"test"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>038</span>eaa65–<span>7170</span>–<span>4541</span>–<span>9</span>a10-ff00938bb3ba&gt; <span>rdf</span>:type <span>pkg</span>:Node.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>128329</span>c8–<span>4347</span>–<span>4</span>fcd-b123-aea10b6ce1a0&gt; <span>rdfs</span>:label <span>"boom"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>128329</span>c8–<span>4347</span>–<span>4</span>fcd-b123-aea10b6ce1a0&gt; <span>rdf</span>:type <span>pkg</span>:Node.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>55</span>b2f738–<span>087</span>a-<span>46</span>a2-bf34–<span>338</span>ce07b44df&gt; <span>rdfs</span>:label <span>"bam"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>55</span>b2f738–<span>087</span>a-<span>46</span>a2-bf34–<span>338</span>ce07b44df&gt; <span>rdf</span>:type <span>pkg</span>:Node.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>358665</span>eb-<span>2</span>e57–<span>433</span>a-<span>9</span>c01-cc83354ac792&gt; <span>rdfs</span>:label <span>"Nodes"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>358665</span>eb-<span>2</span>e57–<span>433</span>a-<span>9</span>c01-cc83354ac792&gt; <span>rdf</span>:type <span>pkg</span>:Node.<br>&lt;<span>urn</span>:<span>uuid</span>:f7a87cea-e12a-<span>4</span>fff-a5b8–<span>4</span>f8f75b5a9e1&gt; <span>rdfs</span>:label <span>"Metadata"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:f7a87cea-e12a-<span>4</span>fff-a5b8–<span>4</span>f8f75b5a9e1&gt; <span>rdf</span>:type <span>pkg</span>:Node.<br>&lt;<span>urn</span>:<span>uuid</span>:a7f6adca-a798–<span>40</span>e3-ba6d-<span>56</span>a80193b3e3&gt; <span>rdfs</span>:label <span>"is"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:a7f6adca-a798–<span>40</span>e3-ba6d-<span>56</span>a80193b3e3&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>6549</span>cc7e-e605–<span>4</span>b93–<span>9039</span>-c09be6bf004f&gt; &lt;<span>urn</span>:<span>uuid</span>:a7f6adca-a798–<span>40</span>e3-ba6d-<span>56</span>a80193b3e3&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>43</span>dad791-b00e-<span>40</span>ec-<span>9</span>ada-<span>2</span>e45a2881d93&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>61</span>a30b72–<span>2</span>b3e-<span>4</span>ccb-<span>8646</span>–<span>21122</span>efbc013&gt; <span>rdfs</span>:label <span>"kind"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>61</span>a30b72–<span>2</span>b3e-<span>4</span>ccb-<span>8646</span>–<span>21122</span>efbc013&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>6549</span>cc7e-e605–<span>4</span>b93–<span>9039</span>-c09be6bf004f&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>61</span>a30b72–<span>2</span>b3e-<span>4</span>ccb-<span>8646</span>–<span>21122</span>efbc013&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>2964</span>cb00–<span>8</span>fc2–<span>4</span>cd0-acb3–<span>4</span>fc05f9933eb&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:fb4486da-<span>8</span>a06–<span>4570</span>-aa29-ee6fdd1e0c94&gt; <span>rdfs</span>:label <span>"about"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:fb4486da-<span>8</span>a06–<span>4570</span>-aa29-ee6fdd1e0c94&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>6549</span>cc7e-e605–<span>4</span>b93–<span>9039</span>-c09be6bf004f&gt; &lt;<span>urn</span>:<span>uuid</span>:fb4486da-<span>8</span>a06–<span>4570</span>-aa29-ee6fdd1e0c94&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>5</span>ac18eb8–<span>6</span>d66–<span>4794</span>-b93e-<span>2304</span>d24cc908&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>583</span>d3489-de0c-<span>4239</span>–<span>9657</span>–<span>417</span>a18bb0465&gt; <span>rdfs</span>:label <span>"linked"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>583</span>d3489-de0c-<span>4239</span>–<span>9657</span>–<span>417</span>a18bb0465&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>6549</span>cc7e-e605–<span>4</span>b93–<span>9039</span>-c09be6bf004f&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>583</span>d3489-de0c-<span>4239</span>–<span>9657</span>–<span>417</span>a18bb0465&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>128329</span>c8–<span>4347</span>–<span>4</span>fcd-b123-aea10b6ce1a0&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>7</span>bc02fc5-a329–<span>43</span>dd-a1f6-cbfd2525f99f&gt; <span>rdfs</span>:label <span>"linked"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>7</span>bc02fc5-a329–<span>43</span>dd-a1f6-cbfd2525f99f&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>6549</span>cc7e-e605–<span>4</span>b93–<span>9039</span>-c09be6bf004f&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>7</span>bc02fc5-a329–<span>43</span>dd-a1f6-cbfd2525f99f&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>55</span>b2f738–<span>087</span>a-<span>46</span>a2-bf34–<span>338</span>ce07b44df&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:df7dc30b-<span>823</span>a-<span>4529</span>–<span>9169</span>-ecc760b24ed1&gt; <span>rdfs</span>:label <span>"linked"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:df7dc30b-<span>823</span>a-<span>4529</span>–<span>9169</span>-ecc760b24ed1&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>2964</span>cb00–<span>8</span>fc2–<span>4</span>cd0-acb3–<span>4</span>fc05f9933eb&gt; &lt;<span>urn</span>:<span>uuid</span>:df7dc30b-<span>823</span>a-<span>4529</span>–<span>9169</span>-ecc760b24ed1&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>358665</span>eb-<span>2</span>e57–<span>433</span>a-<span>9</span>c01-cc83354ac792&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:b09453c6-cfe2–<span>4</span>a36-bf12-c862ed7c61bd&gt; <span>rdfs</span>:label <span>"linked"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:b09453c6-cfe2–<span>4</span>a36-bf12-c862ed7c61bd&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>2964</span>cb00–<span>8</span>fc2–<span>4</span>cd0-acb3–<span>4</span>fc05f9933eb&gt; &lt;<span>urn</span>:<span>uuid</span>:b09453c6-cfe2–<span>4</span>a36-bf12-c862ed7c61bd&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>6</span>b4cc8bc-<span>8654</span>–<span>4</span>a5c-<span>8604</span>-a9699fa07241&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>50</span>a0d38f-<span>2</span>ecc-<span>422</span>d-b08e-<span>29931539</span>d773&gt; <span>rdfs</span>:label <span>"linked"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>50</span>a0d38f-<span>2</span>ecc-<span>422</span>d-b08e-<span>29931539</span>d773&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>2964</span>cb00–<span>8</span>fc2–<span>4</span>cd0-acb3–<span>4</span>fc05f9933eb&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>50</span>a0d38f-<span>2</span>ecc-<span>422</span>d-b08e-<span>29931539</span>d773&gt; &lt;<span>urn</span>:<span>uuid</span>:f7a87cea-e12a-<span>4</span>fff-a5b8–<span>4</span>f8f75b5a9e1&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:f6b77600–<span>2</span>fe3–<span>4</span>b59–<span>86</span>ac-<span>17</span>c2f620cfe5&gt; <span>rdfs</span>:label <span>"poitTo"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:f6b77600–<span>2</span>fe3–<span>4</span>b59–<span>86</span>ac-<span>17</span>c2f620cfe5&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>6</span>b4cc8bc-<span>8654</span>–<span>4</span>a5c-<span>8604</span>-a9699fa07241&gt; &lt;<span>urn</span>:<span>uuid</span>:f6b77600–<span>2</span>fe3–<span>4</span>b59–<span>86</span>ac-<span>17</span>c2f620cfe5&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>358665</span>eb-<span>2</span>e57–<span>433</span>a-<span>9</span>c01-cc83354ac792&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:b325d666–<span>3135</span>–<span>4911</span>-a39a-a13487d78383&gt; <span>rdfs</span>:label <span>"poitto"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:b325d666–<span>3135</span>–<span>4911</span>-a39a-a13487d78383&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>6</span>b4cc8bc-<span>8654</span>–<span>4</span>a5c-<span>8604</span>-a9699fa07241&gt; &lt;<span>urn</span>:<span>uuid</span>:b325d666–<span>3135</span>–<span>4911</span>-a39a-a13487d78383&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>358665</span>eb-<span>2</span>e57–<span>433</span>a-<span>9</span>c01-cc83354ac792&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:f174daa2-dcc3–<span>495</span>d-b126-c0a39488c1d2&gt; <span>rdfs</span>:label <span>"like"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:f174daa2-dcc3–<span>495</span>d-b126-c0a39488c1d2&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:c003d751–<span>9604</span>–<span>4</span>a1c-b893–<span>0</span>cd38d75fa67&gt; &lt;<span>urn</span>:<span>uuid</span>:f174daa2-dcc3–<span>495</span>d-b126-c0a39488c1d2&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>6549</span>cc7e-e605–<span>4</span>b93–<span>9039</span>-c09be6bf004f&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:b56fc03b-<span>6</span>b3b-<span>4</span>c70-b75d-<span>1894</span>b5490d76&gt; <span>rdfs</span>:label <span>"keenAbout"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:b56fc03b-<span>6</span>b3b-<span>4</span>c70-b75d-<span>1894</span>b5490d76&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:c003d751–<span>9604</span>–<span>4</span>a1c-b893–<span>0</span>cd38d75fa67&gt; &lt;<span>urn</span>:<span>uuid</span>:b56fc03b-<span>6</span>b3b-<span>4</span>c70-b75d-<span>1894</span>b5490d76&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>2964</span>cb00–<span>8</span>fc2–<span>4</span>cd0-acb3–<span>4</span>fc05f9933eb&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>678861</span>ed-a4e3–<span>4</span>bcc-ab69-c9f376933761&gt; <span>rdfs</span>:label <span>"build"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>678861</span>ed-a4e3–<span>4</span>bcc-ab69-c9f376933761&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:c003d751–<span>9604</span>–<span>4</span>a1c-b893–<span>0</span>cd38d75fa67&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>678861</span>ed-a4e3–<span>4</span>bcc-ab69-c9f376933761&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>43</span>dad791-b00e-<span>40</span>ec-<span>9</span>ada-<span>2</span>e45a2881d93&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>2260071</span>a-<span>50</span>a0–<span>40</span>e5-a448-be7a60e3a83b&gt; <span>rdfs</span>:label <span>"keenabout"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>2260071</span>a-<span>50</span>a0–<span>40</span>e5-a448-be7a60e3a83b&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:c003d751–<span>9604</span>–<span>4</span>a1c-b893–<span>0</span>cd38d75fa67&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>2260071</span>a-<span>50</span>a0–<span>40</span>e5-a448-be7a60e3a83b&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>2964</span>cb00–<span>8</span>fc2–<span>4</span>cd0-acb3–<span>4</span>fc05f9933eb&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>8</span>bdd8ba8-abd4–<span>4483</span>–<span>9</span>ceb-a1ce926a9ecf&gt; <span>rdfs</span>:label <span>"linked"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>8</span>bdd8ba8-abd4–<span>4483</span>–<span>9</span>ceb-a1ce926a9ecf&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:c003d751–<span>9604</span>–<span>4</span>a1c-b893–<span>0</span>cd38d75fa67&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>8</span>bdd8ba8-abd4–<span>4483</span>–<span>9</span>ceb-a1ce926a9ecf&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>128329</span>c8–<span>4347</span>–<span>4</span>fcd-b123-aea10b6ce1a0&gt;.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>792</span>e475b-d503–<span>4</span>e3d-a785–<span>2</span>f71f4f510f8&gt; <span>rdfs</span>:label <span>"linked"</span>.<br>&lt;<span>urn</span>:<span>uuid</span>:<span>792</span>e475b-d503–<span>4</span>e3d-a785–<span>2</span>f71f4f510f8&gt; <span>rdf</span>:type <span>pkg</span>:Edge.<br>&lt;<span>urn</span>:<span>uuid</span>:c003d751–<span>9604</span>–<span>4</span>a1c-b893–<span>0</span>cd38d75fa67&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>792</span>e475b-d503–<span>4</span>e3d-a785–<span>2</span>f71f4f510f8&gt; &lt;<span>urn</span>:<span>uuid</span>:<span>55</span>b2f738–<span>087</span>a-<span>46</span>a2-bf34–<span>338</span>ce07b44df&gt;.</span>
+```rdf
+@prefix pkg: https://pkg.io/.
+@prefix rdf: http://www.w3.org/1999/02/22-rdf-syntax-ns#.
+@prefix rdfs: http://www.w3.org/2000/01/rdf-schema#.
+pkg:Node a rdfs:Class .
+pkg:Edge a rdfs:Class .
+<urn:uuid:6549cc7e-e605–4b93–9039-c09be6bf004f> rdfs:label "Personal Knowledge Graph".
+<urn:uuid:6549cc7e-e605–4b93–9039-c09be6bf004f> rdf:type pkg:Node.
+<urn:uuid:43dad791-b00e-40ec-9ada-2e45a2881d93> rdfs:label "User centric".
+<urn:uuid:43dad791-b00e-40ec-9ada-2e45a2881d93> rdf:type pkg:Node.
+<urn:uuid:2964cb00–8fc2–4cd0-acb3–4fc05f9933eb> rdfs:label "Knowledge Graph".
+<urn:uuid:2964cb00–8fc2–4cd0-acb3–4fc05f9933eb> rdf:type pkg:Node.
+<urn:uuid:6b4cc8bc-8654–4a5c-8604-a9699fa07241> rdfs:label "Edges".
+<urn:uuid:6b4cc8bc-8654–4a5c-8604-a9699fa07241> rdf:type pkg:Node.
+<urn:uuid:c003d751–9604–4a1c-b893–0cd38d75fa67> rdfs:label "me".
+<urn:uuid:c003d751–9604–4a1c-b893–0cd38d75fa67> rdf:type pkg:Node.
+<urn:uuid:5ac18eb8–6d66–4794-b93e-2304d24cc908> rdfs:label "User data".
+<urn:uuid:5ac18eb8–6d66–4794-b93e-2304d24cc908> rdf:type pkg:Node.
+<urn:uuid:1d28ad39-eebd-4e97–9e71–4f0f9e6fd141> rdfs:label "RDF".
+<urn:uuid:1d28ad39-eebd-4e97–9e71–4f0f9e6fd141> rdf:type pkg:Node.
+<urn:uuid:038eaa65–7170–4541–9a10-ff00938bb3ba> rdfs:label "test".
+<urn:uuid:038eaa65–7170–4541–9a10-ff00938bb3ba> rdf:type pkg:Node.
+<urn:uuid:128329c8–4347–4fcd-b123-aea10b6ce1a0> rdfs:label "boom".
+<urn:uuid:128329c8–4347–4fcd-b123-aea10b6ce1a0> rdf:type pkg:Node.
+<urn:uuid:55b2f738–087a-46a2-bf34–338ce07b44df> rdfs:label "bam".
+<urn:uuid:55b2f738–087a-46a2-bf34–338ce07b44df> rdf:type pkg:Node.
+<urn:uuid:358665eb-2e57–433a-9c01-cc83354ac792> rdfs:label "Nodes".
+<urn:uuid:358665eb-2e57–433a-9c01-cc83354ac792> rdf:type pkg:Node.
+<urn:uuid:f7a87cea-e12a-4fff-a5b8–4f8f75b5a9e1> rdfs:label "Metadata".
+<urn:uuid:f7a87cea-e12a-4fff-a5b8–4f8f75b5a9e1> rdf:type pkg:Node.
+<urn:uuid:a7f6adca-a798–40e3-ba6d-56a80193b3e3> rdfs:label "is".
+<urn:uuid:a7f6adca-a798–40e3-ba6d-56a80193b3e3> rdf:type pkg:Edge.
+<urn:uuid:6549cc7e-e605–4b93–9039-c09be6bf004f> <urn:uuid:a7f6adca-a798–40e3-ba6d-56a80193b3e3> <urn:uuid:43dad791-b00e-40ec-9ada-2e45a2881d93>.
+<urn:uuid:61a30b72–2b3e-4ccb-8646–21122efbc013> rdfs:label "kind".
+<urn:uuid:61a30b72–2b3e-4ccb-8646–21122efbc013> rdf:type pkg:Edge.
+<urn:uuid:6549cc7e-e605–4b93–9039-c09be6bf004f> <urn:uuid:61a30b72–2b3e-4ccb-8646–21122efbc013> <urn:uuid:2964cb00–8fc2–4cd0-acb3–4fc05f9933eb>.
+<urn:uuid:fb4486da-8a06–4570-aa29-ee6fdd1e0c94> rdfs:label "about".
+<urn:uuid:fb4486da-8a06–4570-aa29-ee6fdd1e0c94> rdf:type pkg:Edge.
+<urn:uuid:6549cc7e-e605–4b93–9039-c09be6bf004f> <urn:uuid:fb4486da-8a06–4570-aa29-ee6fdd1e0c94> <urn:uuid:5ac18eb8–6d66–4794-b93e-2304d24cc908>.
+<urn:uuid:583d3489-de0c-4239–9657–417a18bb0465> rdfs:label "linked".
+<urn:uuid:583d3489-de0c-4239–9657–417a18bb0465> rdf:type pkg:Edge.
+<urn:uuid:6549cc7e-e605–4b93–9039-c09be6bf004f> <urn:uuid:583d3489-de0c-4239–9657–417a18bb0465> <urn:uuid:128329c8–4347–4fcd-b123-aea10b6ce1a0>.
+<urn:uuid:7bc02fc5-a329–43dd-a1f6-cbfd2525f99f> rdfs:label "linked".
+<urn:uuid:7bc02fc5-a329–43dd-a1f6-cbfd2525f99f> rdf:type pkg:Edge.
+<urn:uuid:6549cc7e-e605–4b93–9039-c09be6bf004f> <urn:uuid:7bc02fc5-a329–43dd-a1f6-cbfd2525f99f> <urn:uuid:55b2f738–087a-46a2-bf34–338ce07b44df>.
+<urn:uuid:df7dc30b-823a-4529–9169-ecc760b24ed1> rdfs:label "linked".
+<urn:uuid:df7dc30b-823a-4529–9169-ecc760b24ed1> rdf:type pkg:Edge.
+<urn:uuid:2964cb00–8fc2–4cd0-acb3–4fc05f9933eb> <urn:uuid:df7dc30b-823a-4529–9169-ecc760b24ed1> <urn:uuid:358665eb-2e57–433a-9c01-cc83354ac792>.
+<urn:uuid:b09453c6-cfe2–4a36-bf12-c862ed7c61bd> rdfs:label "linked".
+<urn:uuid:b09453c6-cfe2–4a36-bf12-c862ed7c61bd> rdf:type pkg:Edge.
+<urn:uuid:2964cb00–8fc2–4cd0-acb3–4fc05f9933eb> <urn:uuid:b09453c6-cfe2–4a36-bf12-c862ed7c61bd> <urn:uuid:6b4cc8bc-8654–4a5c-8604-a9699fa07241>.
+<urn:uuid:50a0d38f-2ecc-422d-b08e-29931539d773> rdfs:label "linked".
+<urn:uuid:50a0d38f-2ecc-422d-b08e-29931539d773> rdf:type pkg:Edge.
+<urn:uuid:2964cb00–8fc2–4cd0-acb3–4fc05f9933eb> <urn:uuid:50a0d38f-2ecc-422d-b08e-29931539d773> <urn:uuid:f7a87cea-e12a-4fff-a5b8–4f8f75b5a9e1>.
+<urn:uuid:f6b77600–2fe3–4b59–86ac-17c2f620cfe5> rdfs:label "poitTo".
+<urn:uuid:f6b77600–2fe3–4b59–86ac-17c2f620cfe5> rdf:type pkg:Edge.
+<urn:uuid:6b4cc8bc-8654–4a5c-8604-a9699fa07241> <urn:uuid:f6b77600–2fe3–4b59–86ac-17c2f620cfe5> <urn:uuid:358665eb-2e57–433a-9c01-cc83354ac792>.
+<urn:uuid:b325d666–3135–4911-a39a-a13487d78383> rdfs:label "poitto".
+<urn:uuid:b325d666–3135–4911-a39a-a13487d78383> rdf:type pkg:Edge.
+<urn:uuid:6b4cc8bc-8654–4a5c-8604-a9699fa07241> <urn:uuid:b325d666–3135–4911-a39a-a13487d78383> <urn:uuid:358665eb-2e57–433a-9c01-cc83354ac792>.
+<urn:uuid:f174daa2-dcc3–495d-b126-c0a39488c1d2> rdfs:label "like".
+<urn:uuid:f174daa2-dcc3–495d-b126-c0a39488c1d2> rdf:type pkg:Edge.
+<urn:uuid:c003d751–9604–4a1c-b893–0cd38d75fa67> <urn:uuid:f174daa2-dcc3–495d-b126-c0a39488c1d2> <urn:uuid:6549cc7e-e605–4b93–9039-c09be6bf004f>.
+<urn:uuid:b56fc03b-6b3b-4c70-b75d-1894b5490d76> rdfs:label "keenAbout".
+<urn:uuid:b56fc03b-6b3b-4c70-b75d-1894b5490d76> rdf:type pkg:Edge.
+<urn:uuid:c003d751–9604–4a1c-b893–0cd38d75fa67> <urn:uuid:b56fc03b-6b3b-4c70-b75d-1894b5490d76> <urn:uuid:2964cb00–8fc2–4cd0-acb3–4fc05f9933eb>.
+<urn:uuid:678861ed-a4e3–4bcc-ab69-c9f376933761> rdfs:label "build".
+<urn:uuid:678861ed-a4e3–4bcc-ab69-c9f376933761> rdf:type pkg:Edge.
+<urn:uuid:c003d751–9604–4a1c-b893–0cd38d75fa67> <urn:uuid:678861ed-a4e3–4bcc-ab69-c9f376933761> <urn:uuid:43dad791-b00e-40ec-9ada-2e45a2881d93>.
+<urn:uuid:2260071a-50a0–40e5-a448-be7a60e3a83b> rdfs:label "keenabout".
+<urn:uuid:2260071a-50a0–40e5-a448-be7a60e3a83b> rdf:type pkg:Edge.
+<urn:uuid:c003d751–9604–4a1c-b893–0cd38d75fa67> <urn:uuid:2260071a-50a0–40e5-a448-be7a60e3a83b> <urn:uuid:2964cb00–8fc2–4cd0-acb3–4fc05f9933eb>.
+<urn:uuid:8bdd8ba8-abd4–4483–9ceb-a1ce926a9ecf> rdfs:label "linked".
+<urn:uuid:8bdd8ba8-abd4–4483–9ceb-a1ce926a9ecf> rdf:type pkg:Edge.
+<urn:uuid:c003d751–9604–4a1c-b893–0cd38d75fa67> <urn:uuid:8bdd8ba8-abd4–4483–9ceb-a1ce926a9ecf> <urn:uuid:128329c8–4347–4fcd-b123-aea10b6ce1a0>.
+<urn:uuid:792e475b-d503–4e3d-a785–2f71f4f510f8> rdfs:label "linked".
+<urn:uuid:792e475b-d503–4e3d-a785–2f71f4f510f8> rdf:type pkg:Edge.
+<urn:uuid:c003d751–9604–4a1c-b893–0cd38d75fa67> <urn:uuid:792e475b-d503–4e3d-a785–2f71f4f510f8> <urn:uuid:55b2f738–087a-46a2-bf34–338ce07b44df>.
+
 ```
 
 You could find a test vault on my github
